@@ -66,12 +66,18 @@ enum RecurringFrequency: String, CaseIterable {
     case yearly = "Yearly"
 }
 
+// MonthlyBill is now defined in DashboardModels.swift
+
 class FinanceManager: ObservableObject {
     @Published var accounts: [Account] = []
     @Published var transactions: [Transaction] = []
     @Published var bills: [Bill] = []
+    @Published var monthlyBills: [MonthlyBill] = []
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String?
     
     private var cancellables = Set<AnyCancellable>()
+    private let databaseService = DatabaseService.shared
     
     init() {
         loadSampleData()
@@ -163,6 +169,122 @@ class FinanceManager: ObservableObject {
         }
     }
     
+    // MARK: - Monthly Bill Methods (Database-backed)
+    
+    /// Fetch all monthly bills from the database
+    func fetchMonthlyBills() {
+        isLoading = true
+        errorMessage = nil
+        
+        databaseService.fetchMonthlyBills { [weak self] result in
+            guard let self = self else { return }
+            
+            self.isLoading = false
+            
+            switch result {
+            case .success(let bills):
+                self.monthlyBills = bills
+            case .failure(let error):
+                self.errorMessage = "Failed to fetch bills: \(error.localizedDescription)"
+                print("Error fetching monthly bills: \(error)")
+            }
+        }
+    }
+    
+    /// Add a new monthly bill to the database
+    /// - Parameter bill: The bill to add
+    func addMonthlyBill(_ bill: MonthlyBill) {
+        isLoading = true
+        errorMessage = nil
+        
+        databaseService.addMonthlyBill(bill) { [weak self] result in
+            guard let self = self else { return }
+            
+            self.isLoading = false
+            
+            switch result {
+            case .success:
+                // Refresh the bills list
+                self.fetchMonthlyBills()
+            case .failure(let error):
+                self.errorMessage = "Failed to add bill: \(error.localizedDescription)"
+                print("Error adding monthly bill: \(error)")
+            }
+        }
+    }
+    
+    /// Update an existing monthly bill in the database
+    /// - Parameter bill: The bill to update
+    func updateMonthlyBill(_ bill: MonthlyBill) {
+        isLoading = true
+        errorMessage = nil
+        
+        databaseService.updateMonthlyBill(bill) { [weak self] result in
+            guard let self = self else { return }
+            
+            self.isLoading = false
+            
+            switch result {
+            case .success:
+                // Update the bill in the local array
+                if let index = self.monthlyBills.firstIndex(where: { $0.id == bill.id }) {
+                    self.monthlyBills[index] = bill
+                }
+            case .failure(let error):
+                self.errorMessage = "Failed to update bill: \(error.localizedDescription)"
+                print("Error updating monthly bill: \(error)")
+            }
+        }
+    }
+    
+    /// Delete a monthly bill from the database
+    /// - Parameter billId: The ID of the bill to delete
+    func deleteMonthlyBill(billId: UUID) {
+        isLoading = true
+        errorMessage = nil
+        
+        databaseService.deleteMonthlyBill(billId: billId) { [weak self] result in
+            guard let self = self else { return }
+            
+            self.isLoading = false
+            
+            switch result {
+            case .success:
+                // Remove the bill from the local array
+                self.monthlyBills.removeAll { $0.id == billId }
+            case .failure(let error):
+                self.errorMessage = "Failed to delete bill: \(error.localizedDescription)"
+                print("Error deleting monthly bill: \(error)")
+            }
+        }
+    }
+    
+    // MARK: - Database Connection
+    
+    /// Connect to the database using MCP server
+    /// - Parameters:
+    ///   - username: MCP server username
+    ///   - password: MCP server password
+    ///   - completion: Callback with result of connection
+    func connectToDatabase(username: String, password: String, completion: @escaping (Bool, String?) -> Void) {
+        databaseService.authenticate(username: username, password: password) { success, errorMessage in
+            completion(success, errorMessage)
+        }
+    }
+    
+    /// Execute a query on the database
+    /// - Parameters:
+    ///   - query: SQL query to execute
+    ///   - parameters: Query parameters
+    ///   - completion: Callback with query results or error
+    func executeQuery<T: Decodable>(
+        query: String,
+        parameters: [Any] = [],
+        completion: @escaping (Result<T, Error>) -> Void
+    ) {
+        databaseService.executeQuery(query: query, parameters: parameters, completion: completion)
+    }
+    
     // MARK: - Sample Data
     
     private func loadSampleData() {
@@ -243,5 +365,38 @@ class FinanceManager: ObservableObject {
         )
         
         bills = [bill1, bill2, bill3]
+        
+        // Sample monthly bills (for UI preview when database is not connected)
+        let monthlyBill1 = MonthlyBill(
+            name: "Rent",
+            monthlyAmount: 1200.00,
+            pastDue: 0.0,
+            dueDate: calendar.date(byAdding: .day, value: 5, to: now)!,
+            status: .unpaid,
+            category: "Housing",
+            daysPastDue: 0
+        )
+        
+        let monthlyBill2 = MonthlyBill(
+            name: "Electricity",
+            monthlyAmount: 85.00,
+            pastDue: 0.0,
+            dueDate: calendar.date(byAdding: .day, value: 12, to: now)!,
+            status: .unpaid,
+            category: "Utilities",
+            daysPastDue: 0
+        )
+        
+        let monthlyBill3 = MonthlyBill(
+            name: "Internet",
+            monthlyAmount: 65.00,
+            pastDue: 85.00,
+            dueDate: calendar.date(byAdding: .day, value: -5, to: now)!,
+            status: .late,
+            category: "Utilities",
+            daysPastDue: 5
+        )
+        
+        monthlyBills = [monthlyBill1, monthlyBill2, monthlyBill3]
     }
 } 

@@ -91,3 +91,6 @@ iOSInjectionProject/
 
 # macOS
 .DS_Store 
+DatabaseConfig.xcconfig
+
+RuniT_iPadOS_Template/logs/

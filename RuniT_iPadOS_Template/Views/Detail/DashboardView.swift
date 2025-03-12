@@ -2,14 +2,17 @@ import SwiftUI
 
 struct DashboardDetailView: View {
     @StateObject private var viewModel: DashboardViewModel
+    @EnvironmentObject private var financeManager: FinanceManager
     
-    init(financeManager: FinanceManager) {
-        _viewModel = StateObject(wrappedValue: DashboardViewModel(financeManager: financeManager))
+    init(financeManager: FinanceManager? = nil) {
+        let manager = financeManager ?? FinanceManager()
+        _viewModel = StateObject(wrappedValue: DashboardViewModel(financeManager: manager))
     }
     
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                // When used stand-alone (not in MainDashboardView)
                 Text("Dashboard")
                     .font(.largeTitle)
                     .bold()
@@ -40,7 +43,7 @@ struct DashboardDetailView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { /* Refresh data */ }) {
                     Image(systemName: "arrow.clockwise")
-                        .foregroundColor(.appPrimaryBlue)
+                        .foregroundColor(.blue)
                 }
             }
         }

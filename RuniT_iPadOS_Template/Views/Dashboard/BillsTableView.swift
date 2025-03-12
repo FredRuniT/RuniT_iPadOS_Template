@@ -1,127 +1,218 @@
 import SwiftUI
 
 struct BillsTableView: View {
+    @EnvironmentObject private var financeManager: FinanceManager
     @State private var selectedTab: BillsTab = .monthly
-    @State private var bills: [MonthlyBill] = []
+    @State private var sortOrder: [KeyPathComparator<MonthlyBill>] = [
+        .init(\.name, order: .forward)
+    ]
+    @State private var filterStatus: MonthlyBill.BillStatus?
+    @State private var searchText: String = ""
+    @State private var selectedBill: MonthlyBill?
+    @State private var showBillDetail = false
+    var onBillSelected: ((MonthlyBill) -> Void)?
     
-    enum BillsTab {
-        case monthly, oneTime
+    enum BillsTab: String, CaseIterable {
+        case monthly = "Monthly Bills"
+        case oneTime = "One-Time Bills"
+    }
+    
+    // Computed property for filtered bills
+    private var filteredBills: [MonthlyBill] {
+        // Start with sample bills for preview or actual bills from finance manager
+        let bills = financeManager.monthlyBills.isEmpty ? sampleBills : financeManager.monthlyBills
+        
+        // Apply filters
+        return bills.filter { bill in
+            let matchesSearch = searchText.isEmpty || 
+                bill.name.localizedCaseInsensitiveContains(searchText) ||
+                bill.category.localizedCaseInsensitiveContains(searchText)
+            
+            let matchesStatus = filterStatus == nil || bill.status == filterStatus
+            
+            return matchesSearch && matchesStatus
+        }
+    }
+    
+    init(onBillSelected: ((MonthlyBill) -> Void)? = nil) {
+        self.onBillSelected = onBillSelected
+        _selectedBill = State(initialValue: nil)
+        _showBillDetail = State(initialValue: false)
+    }
+    
+    // Bill detail view shown when a bill is tapped
+    struct BillDetailsSheet: View {
+        let bill: MonthlyBill
+        @Environment(\.presentationMode) var presentationMode
+        
+        var body: some View {
+            NavigationView {
+                VStack {
+                    Text("Bill Details: \(bill.name)")
+                        .font(.headline)
+                    
+                    VStack(alignment: .leading) {
+                        Text("Amount: $\(bill.monthlyAmount, specifier: "%.2f")")
+                        Text("Due Date: \(formattedDate(bill.dueDate))")
+                        Text("Status: \(bill.status.rawValue)")
+                        Text("Category: \(bill.category)")
+                    }
+                    .padding()
+                    
+                    Spacer()
+                }
+                .navigationBarItems(trailing: Button("Close") {
+                    presentationMode.wrappedValue.dismiss()
+                })
+            }
+        }
+        
+        private func formattedDate(_ date: Date) -> String {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM d, yyyy"
+            return formatter.string(from: date)
+        }
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            // Tab selector
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with title and actions
             HStack {
-                TabButton(title: "Monthly Bills", isSelected: selectedTab == .monthly) {
-                    selectedTab = .monthly
-                }
-                
-                TabButton(title: "One-Time Bills", isSelected: selectedTab == .oneTime) {
-                    selectedTab = .oneTime
-                }
+                Text("Bills & Payments")
+                    .font(.title2)
+                    .fontWeight(.bold)
                 
                 Spacer()
                 
-                // Action buttons
-                HStack(spacing: Spacing.md) {
-                    Button {
-                        // Link to accounts action
-                    } label: {
-                        HStack(spacing: Spacing.xs) {
-                            Image(systemName: "link")
-                                .font(.caption)
-                            Text("Link to accounts: Add account")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, 6)
-                        .background {
-                            Capsule()
-                                .stroke(Color.appPrimaryBlue, lineWidth: 1)
-                        }
-                        .foregroundColor(.appPrimaryBlue)
-                    }
-                    
-                    Button {
-                        // View upcoming bills action
-                    } label: {
-                        Text("Your upcoming bills and payments")
-                            .font(.caption)
-                            .foregroundColor(.appPrimaryBlue)
-                    }
-                    
-                    Button {
-                        // Upload CSV action
-                    } label: {
-                        HStack(spacing: Spacing.xs) {
-                            Image(systemName: "arrow.up.doc")
-                                .font(.caption)
-                            Text("Upload CSV")
-                                .font(.caption)
-                        }
-                        .foregroundColor(.appPrimaryBlue)
-                    }
-                    
-                    Button {
-                        // Add new bill action
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.caption)
-                            .foregroundColor(.white)
-                            .padding(6)
-                            .background(Color.appPrimaryBlue)
-                            .clipShape(Circle())
+                // Tab selector for bill types
+                Picker("Bill Type", selection: $selectedTab) {
+                    ForEach(BillsTab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
                     }
                 }
+                .pickerStyle(.segmented)
+                .frame(width: 240)
+                
+                // Search field
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    
+                    TextField("Search bills", text: $searchText)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+                .frame(width: 200)
             }
-            .padding(.horizontal, Spacing.md)
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 16)
             
-            // Table header
-            HStack(spacing: 0) {
-                Text("Name")
-                    .frame(width: 180, alignment: .leading)
+            // Bills table
+            VStack {
+                // Table header
+                HStack {
+                    Text("Name")
+                        .fontWeight(.medium)
+                        .frame(width: 200, alignment: .leading)
+                    
+                    Spacer()
+                    
+                    Text("Amount")
+                        .fontWeight(.medium)
+                        .frame(width: 100, alignment: .trailing)
+                    
+                    Text("Due Date")
+                        .fontWeight(.medium)
+                        .frame(width: 120, alignment: .trailing)
+                    
+                    Text("Status")
+                        .fontWeight(.medium)
+                        .frame(width: 100, alignment: .trailing)
+                }
+                .foregroundColor(.secondary)
+                .font(.subheadline)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(Color(.systemGray6))
                 
-                Text("Monthly Amount")
-                    .frame(width: 120, alignment: .trailing)
-                
-                Text("Past Due")
-                    .frame(width: 120, alignment: .trailing)
-                
-                Text("Due Date")
-                    .frame(width: 120, alignment: .leading)
-                
-                Text("Status")
-                    .frame(width: 100, alignment: .leading)
-                
-                Text("Category")
-                    .frame(width: 40, alignment: .center)
-                
-                Spacer()
-            }
-            .font(.caption)
-            .foregroundColor(.secondary)
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.xs)
-            .background(Color.gray.opacity(0.1))
-            
-            // Table rows
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(sampleBills) { bill in
-                        BillRowView(bill: bill)
-                            .padding(.vertical, Spacing.xs)
-                            .padding(.horizontal, Spacing.md)
-                            .background(
-                                Color.white
-                                    .shadow(color: Color.black.opacity(0.05), radius: 1, x: 0, y: 1)
-                            )
+                // Bills list
+                if financeManager.isLoading {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                } else if filteredBills.isEmpty {
+                    Spacer()
+                    Text("No bills found")
+                        .foregroundColor(.secondary)
+                    Spacer()
+                } else {
+                    List {
+                        ForEach(filteredBills) { bill in
+                            HStack {
+                                Text(bill.name)
+                                    .fontWeight(.medium)
+                                    .frame(width: 200, alignment: .leading)
+                                
+                                Spacer()
+                                
+                                Text("$\(bill.monthlyAmount, specifier: "%.2f")")
+                                    .monospacedDigit()
+                                    .frame(width: 100, alignment: .trailing)
+                                
+                                Text(formattedDate(bill.dueDate))
+                                    .frame(width: 120, alignment: .trailing)
+                                
+                                Text(bill.status.rawValue)
+                                    .foregroundColor(statusColor(bill.status))
+                                    .frame(width: 100, alignment: .trailing)
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedBill = bill
+                                showBillDetail = true
+                            }
+                        }
                     }
+                    .listStyle(.plain)
                 }
             }
+            .background(Color(.systemBackground))
         }
-        .background(Color.white)
-        .cornerRadius(8)
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+        .sheet(isPresented: $showBillDetail, content: {
+            if let bill = selectedBill {
+                BillDetailsSheet(bill: bill)
+            }
+        })
+    }
+    
+    // Helper function to format date
+    private func formattedDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+    
+    // Helper function to get status color
+    private func statusColor(_ status: MonthlyBill.BillStatus) -> Color {
+        switch status {
+        case .paid: return .green
+        case .unpaid: return .blue
+        case .scheduled: return .orange
+        case .late: return .red
+        }
+    }
+    
+    // Handle bill tap
+    private func handleBillTap(_ bill: MonthlyBill) {
+        selectedBill = bill
+        if let callback = onBillSelected {
+            callback(bill)
+        } else {
+            showBillDetail = true
+        }
     }
     
     // Sample data for preview
@@ -151,7 +242,7 @@ struct BillsTableView: View {
                 pastDue: 394.20,
                 dueDate: Calendar.current.date(from: DateComponents(year: 2023, month: 8, day: 14))!,
                 status: .late,
-                category: "Entertainment Services",
+                category: "Insurance",
                 daysPastDue: 576
             ),
             MonthlyBill(
@@ -160,7 +251,7 @@ struct BillsTableView: View {
                 pastDue: 2384.90,
                 dueDate: Calendar.current.date(from: DateComponents(year: 2024, month: 3, day: 16))!,
                 status: .late,
-                category: "Entertainment Services",
+                category: "Healthcare",
                 daysPastDue: 361
             ),
             MonthlyBill(
@@ -169,123 +260,9 @@ struct BillsTableView: View {
                 pastDue: 111.00,
                 dueDate: Calendar.current.date(from: DateComponents(year: 2024, month: 6, day: 11))!,
                 status: .late,
-                category: "Entertainment Services",
+                category: "Transportation",
                 daysPastDue: 274
             )
         ]
     }
 }
-
-// Tab button component
-struct TabButton: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .padding(.vertical, Spacing.sm)
-                .padding(.horizontal, Spacing.md)
-                .background(isSelected ? Color.black : Color.clear)
-                .foregroundColor(isSelected ? .white : .primary)
-                .cornerRadius(4)
-        }
-    }
-}
-
-// Bill row component
-struct BillRowView: View {
-    let bill: MonthlyBill
-    
-    var body: some View {
-        HStack(spacing: 0) {
-            // Name column with avatar
-            HStack(spacing: Spacing.sm) {
-                Circle()
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(width: 32, height: 32)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(bill.name)
-                        .font(.subheadline)
-                    
-                    Text("\(bill.daysPastDue) days past due")
-                        .font(.caption2)
-                        .foregroundColor(.appDangerRed)
-                }
-            }
-            .frame(width: 180, alignment: .leading)
-            
-            // Monthly Amount
-            Text("$\(bill.monthlyAmount, specifier: "%.2f")")
-                .font(.system(.subheadline, design: .monospaced))
-                .frame(width: 120, alignment: .trailing)
-            
-            // Past Due
-            Text("$\(bill.pastDue, specifier: "%.2f")")
-                .font(.system(.subheadline, design: .monospaced))
-                .foregroundColor(.appDangerRed)
-                .frame(width: 120, alignment: .trailing)
-            
-            // Due Date
-            Text(formattedDate(bill.dueDate))
-                .font(.subheadline)
-                .frame(width: 120, alignment: .leading)
-            
-            // Status
-            HStack {
-                Text(bill.status.rawValue)
-                    .font(.caption)
-                    .padding(.horizontal, Spacing.xs)
-                    .padding(.vertical, 4)
-                    .background(statusColor(bill.status).opacity(0.2))
-                    .foregroundColor(statusColor(bill.status))
-                    .cornerRadius(4)
-            }
-            .frame(width: 100, alignment: .leading)
-            
-            // Category - Simplified to just show the color icon
-            Circle()
-                .fill(Color.appPrimaryBlue)
-                .frame(width: 8, height: 8)
-                .frame(width: 40, alignment: .center)
-            
-            // Actions
-            Spacer()
-            
-            Button {
-                // Show actions menu
-            } label: {
-                Image(systemName: "ellipsis")
-                    .foregroundColor(.gray)
-            }
-            .padding(.trailing, Spacing.sm)
-        }
-        .padding(.vertical, Spacing.xs)
-    }
-    
-    private func formattedDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, yyyy"
-        return formatter.string(from: date)
-    }
-    
-    private func statusColor(_ status: MonthlyBill.BillStatus) -> Color {
-        switch status {
-        case .paid:
-            return .appSuccessGreen
-        case .pending:
-            return .appCautionOrange
-        case .late:
-            return .appDangerRed
-        }
-    }
-}
-
-#Preview {
-    BillsTableView()
-        .padding()
-        .frame(height: 500)
-} 
