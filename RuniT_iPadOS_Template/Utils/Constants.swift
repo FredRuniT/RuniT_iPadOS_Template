@@ -23,13 +23,13 @@ struct AppConstants {
     
     // Colors
     struct Colors {
-        static let primaryAccent = Color.blue
-        static let secondaryAccent = Color.green
-        static let tertiaryAccent = Color.orange
-        static let warningColor = Color.red
+        static let primaryAccent = Color.appPrimaryBlue
+        static let secondaryAccent = Color.appSuccessGreen
+        static let tertiaryAccent = Color.appCautionOrange
+        static let warningColor = Color.appDangerRed
         
-        static let incomeGreen = Color.green
-        static let expenseRed = Color.red
+        static let incomeGreen = Color.appSuccessGreen
+        static let expenseRed = Color.appDangerRed
     }
     
     // Date Formats

@@ -3,6 +3,7 @@ import SwiftUI
 struct DetailView: View {
     let sidebarSelection: SidebarItem?
     let detailID: UUID?
+    @EnvironmentObject private var financeManager: FinanceManager
     
     var body: some View {
         Group {
@@ -43,7 +44,7 @@ struct DetailView: View {
                 // Dashboard or section overview when no specific item is selected
                 switch sidebarSelection {
                 case .dashboard:
-                    DashboardView()
+                    DashboardDetailView(financeManager: financeManager)
                 
                 case .insights:
                     InsightsView()
@@ -147,66 +148,6 @@ struct BillDetailView: View {
         }
         .padding()
         .navigationTitle("Bill Details")
-    }
-}
-
-struct DashboardView: View {
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                Text("Dashboard")
-                    .font(.largeTitle)
-                    .bold()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                
-                // Net Worth Summary
-                VStack(alignment: .leading) {
-                    Text("Net Worth")
-                        .font(.headline)
-                    Text("$125,432.67")
-                        .font(.title)
-                        .bold()
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(10)
-                
-                // Monthly Cash Flow
-                VStack(alignment: .leading) {
-                    Text("Monthly Cash Flow")
-                        .font(.headline)
-                    Text("+$2,345.67")
-                        .font(.title2)
-                        .bold()
-                        .foregroundColor(.green)
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(10)
-                
-                // Upcoming Bills
-                VStack(alignment: .leading) {
-                    Text("Upcoming Bills")
-                        .font(.headline)
-                    
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Rent - $1,200.00 (Due in 5 days)")
-                        Text("Electricity - $85.00 (Due in 12 days)")
-                        Text("Internet - $65.00 (Due in 15 days)")
-                    }
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.1))
-                .cornerRadius(10)
-                
-                Spacer()
-            }
-            .padding()
-        }
-        .navigationTitle("Dashboard")
     }
 }
 

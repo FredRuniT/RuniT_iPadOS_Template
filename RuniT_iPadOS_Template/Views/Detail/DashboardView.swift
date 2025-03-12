@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct DashboardView: View {
+struct DashboardDetailView: View {
     @StateObject private var viewModel: DashboardViewModel
     
     init(financeManager: FinanceManager) {
@@ -40,6 +40,7 @@ struct DashboardView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { /* Refresh data */ }) {
                     Image(systemName: "arrow.clockwise")
+                        .foregroundColor(.appPrimaryBlue)
                 }
             }
         }
@@ -71,7 +72,7 @@ struct DashboardView: View {
             }
         }
         .padding()
-        .background(Color.blue.opacity(0.1))
+        .background(Color.appPrimaryBlue.opacity(0.1))
         .cornerRadius(AppConstants.UI.cornerRadius)
     }
     
@@ -83,14 +84,14 @@ struct DashboardView: View {
             Text(viewModel.formatCurrency(viewModel.monthlyCashFlow))
                 .font(.title2)
                 .bold()
-                .foregroundColor(viewModel.monthlyCashFlow >= 0 ? .green : .red)
+                .foregroundColor(viewModel.monthlyCashFlow >= 0 ? .appSuccessGreen : .appDangerRed)
             
             HStack {
                 Text("Income:")
                     .foregroundColor(.secondary)
                 Spacer()
                 Text(viewModel.formatCurrency(viewModel.monthlyIncome))
-                    .foregroundColor(.green)
+                    .foregroundColor(.appSuccessGreen)
             }
             
             HStack {
@@ -98,11 +99,11 @@ struct DashboardView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Text(viewModel.formatCurrency(viewModel.monthlyExpenses))
-                    .foregroundColor(.red)
+                    .foregroundColor(.appDangerRed)
             }
         }
         .padding()
-        .background(Color.green.opacity(0.1))
+        .background(Color.appSuccessGreen.opacity(0.1))
         .cornerRadius(AppConstants.UI.cornerRadius)
     }
     
@@ -140,7 +141,7 @@ struct DashboardView: View {
             }
         }
         .padding()
-        .background(Color.orange.opacity(0.1))
+        .background(Color.appCautionOrange.opacity(0.1))
         .cornerRadius(AppConstants.UI.cornerRadius)
     }
     
@@ -168,7 +169,7 @@ struct DashboardView: View {
                         
                         Text(viewModel.formatCurrency(transaction.amount))
                             .fontWeight(.semibold)
-                            .foregroundColor(transaction.amount >= 0 ? .green : .red)
+                            .foregroundColor(Color.forAmount(transaction.amount))
                     }
                     .padding(.vertical, 4)
                     
@@ -187,7 +188,7 @@ struct DashboardView: View {
             }
         }
         .padding()
-        .background(Color.purple.opacity(0.1))
+        .background(Color.appPrimaryBlue.opacity(0.1))
         .cornerRadius(AppConstants.UI.cornerRadius)
     }
     
@@ -225,7 +226,7 @@ struct DashboardView: View {
                                 .cornerRadius(4)
                             
                             Rectangle()
-                                .fill(Color.blue)
+                                .fill(Color.appPrimaryBlue)
                                 .frame(width: geometry.size.width * CGFloat(percentage), height: 8)
                                 .cornerRadius(4)
                         }
@@ -247,7 +248,7 @@ struct DashboardView: View {
             }
         }
         .padding()
-        .background(Color.indigo.opacity(0.1))
+        .background(Color.appPrimaryBlue.opacity(0.1))
         .cornerRadius(AppConstants.UI.cornerRadius)
     }
 } 
