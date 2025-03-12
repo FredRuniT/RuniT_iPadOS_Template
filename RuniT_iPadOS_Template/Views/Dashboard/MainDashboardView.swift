@@ -4,152 +4,90 @@ struct MainDashboardView: View {
     @EnvironmentObject private var financeManager: FinanceManager
     @Environment(\.themeManager) private var themeManager
     
-    // Sample data for preview
-    private let accounts = [
-        DashboardAccount(id: UUID(), name: "Checking", institution: "Bank of America", balance: 2543.67, type: "Checking"),
-        DashboardAccount(id: UUID(), name: "Savings", institution: "Bank of America", balance: 15750.42, type: "Savings"),
-        DashboardAccount(id: UUID(), name: "Credit Card", institution: "Chase", balance: -1250.30, type: "Credit")
-    ]
-    
-    private let budgets = [
-        DashboardBudget(id: UUID(), category: "Dining", spent: 350, total: 500),
-        DashboardBudget(id: UUID(), category: "Entertainment", spent: 120, total: 200),
-        DashboardBudget(id: UUID(), category: "Shopping", spent: 450, total: 400)
-    ]
-    
-    private let transactions = [
-        DashboardTransaction(id: UUID(), merchantName: "Starbucks", date: Date(), amount: -4.95, category: "Food"),
-        DashboardTransaction(id: UUID(), merchantName: "Amazon", date: Date().addingTimeInterval(-86400), amount: -29.99, category: "Shopping"),
-        DashboardTransaction(id: UUID(), merchantName: "Netflix", date: Date().addingTimeInterval(-172800), amount: -14.99, category: "Entertainment")
-    ]
-    
-    let columns = [
-        GridItem(.adaptive(minimum: 240, maximum: 300), spacing: Spacing.md)
-    ]
-    
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Spacing.lg) {
-               
-                
-                // Net Worth Summary
-                ThemedCard {
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Net Worth")
-                            .headlineStyle()
-                        
-                        Text("$17,043.79")
-                            .currencyLargeStyle()
-                            .foregroundColor(.appPrimaryBlue)
-                        
-                        Text("↑ $1,250.42 (7.9%) this month")
-                            .captionStyle()
-                            .foregroundColor(.appSuccessGreen)
-                    }
-                }
-                .cardHoverEffect()
-                .padding(.horizontal, Spacing.md)
-                
-                // Accounts Section
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    SectionHeader(title: "Accounts", buttonTitle: "View All") {
-                        print("View all accounts")
-                    }
+            LazyVStack(spacing: 0) {
+                // Top row with Bills Table and Payment Schedule
+                HStack(alignment: .top, spacing: 0) {
+                    // Bills Table
+                    BillsTableView()
+                        .padding(.trailing, 8)
                     
-                    LazyVGrid(columns: columns, spacing: Spacing.md) {
-                        ForEach(accounts) { account in
-                            AccountCard(
-                                name: account.name,
-                                institution: account.institution,
-                                balance: account.balance,
-                                type: account.type
-                            )
-                            .cardHoverEffect()
-                        }
-                    }
-                    .padding(.horizontal, Spacing.md)
+                    // Payment Schedule
+                    PaymentScheduleView()
+                        .frame(width: 300)
                 }
+                .padding(.bottom, 16)
                 
-                // Budgets Section
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    SectionHeader(title: "Budgets", buttonTitle: "View All") {
-                        print("View all budgets")
-                    }
+                // Bottom row with three panels
+                HStack(alignment: .top, spacing: 16) {
+                    // Budget Breakdown
+                    BudgetBreakdownView()
+                        .frame(maxWidth: .infinity)
                     
-                    VStack(spacing: Spacing.sm) {
-                        ForEach(budgets) { budget in
-                            BudgetProgressCard(
-                                spent: budget.spent,
-                                total: budget.total,
-                                category: budget.category
-                            )
-                            .cardHoverEffect()
-                        }
-                    }
-                    .padding(.horizontal, Spacing.md)
-                }
-                
-                // Recent Transactions
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    SectionHeader(title: "Recent Transactions", buttonTitle: "View All") {
-                        print("View all transactions")
-                    }
+                    // Budget Insights
+                    BudgetInsightsView()
+                        .frame(maxWidth: .infinity)
                     
-                    VStack(spacing: Spacing.xs) {
-                        ForEach(transactions) { transaction in
-                            TransactionCard(
-                                merchantName: transaction.merchantName,
-                                date: transaction.date,
-                                amount: transaction.amount,
-                                category: transaction.category
-                            )
-                            .cardHoverEffect()
-                        }
-                    }
-                    .padding(.horizontal, Spacing.md)
+                    // Financial Freedom Journey
+                    FinancialFreedomView()
+                        .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.vertical, Spacing.lg)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 20)
         }
-        .background(Color(.systemBackground))
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("Dashboard")
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { /* Refresh data */ }) {
-                    Image(systemName: "arrow.clockwise")
-                        .foregroundColor(.appPrimaryBlue)
+                HStack(spacing: 12) {
+                    // Search field
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.secondary)
+                        Text("Search...")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("⌘K")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(8)
+                    .frame(width: 200)
+                    
+                    // Refresh button
+                    Button(action: { /* Refresh data */ }) {
+                        Image(systemName: "arrow.clockwise")
+                            .imageScale(.medium)
+                    }
+                    
+                    // User profile
+                    Button(action: { /* User profile action */ }) {
+                        Circle()
+                            .fill(Color(.secondarySystemBackground))
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Text("FB")
+                                    .font(.subheadline)
+                                    .foregroundColor(.primary)
+                            )
+                    }
                 }
             }
         }
     }
 }
 
-// Sample models for preview
-struct DashboardAccount: Identifiable {
-    let id: UUID
-    let name: String
-    let institution: String
-    let balance: Double
-    let type: String
-}
-
-struct DashboardBudget: Identifiable {
-    let id: UUID
-    let category: String
-    let spent: Double
-    let total: Double
-}
-
-struct DashboardTransaction: Identifiable {
-    let id: UUID
-    let merchantName: String
-    let date: Date
-    let amount: Double
-    let category: String
-}
-
 #Preview {
-    MainDashboardView()
-        .environmentObject(FinanceManager())
-        .environment(\.themeManager, ThemeManager())
+    NavigationView {
+        MainDashboardView()
+            .environmentObject(FinanceManager())
+            .environment(\.themeManager, ThemeManager())
+    }
+    .previewInterfaceOrientation(.landscapeLeft)
 } 
