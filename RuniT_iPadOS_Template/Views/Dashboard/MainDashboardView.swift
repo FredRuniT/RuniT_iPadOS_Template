@@ -30,9 +30,7 @@ struct MainDashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                Text("Dashboard")
-                    .titleLargeStyle()
-                    .padding(.horizontal, Spacing.md)
+               
                 
                 // Net Worth Summary
                 ThemedCard {
