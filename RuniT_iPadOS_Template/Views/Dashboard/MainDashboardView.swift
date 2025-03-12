@@ -150,19 +150,39 @@ struct MainDashboardView: View {
         .navigationTitle("Dashboard")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                // Search button with Command+K shortcut
+                // Stylish Command+K search button
                 Button(action: { showSearch.toggle() }) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
-                        Text("Search")
+                            .foregroundColor(.secondary)
+                        
+                        Text("Ask Me Anything...")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                        
+                        Spacer()
+                        
                         Text("⌘K")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color(.systemGray5))
+                            .cornerRadius(4)
                     }
                     .padding(8)
-                    .background(Color(.systemGray6).opacity(0.8))
-                    .cornerRadius(8)
+                    .frame(width: 240)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Material.ultraThinMaterial)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(.systemGray4), lineWidth: 0.5)
+                    )
                 }
+                .buttonStyle(PlainButtonStyle())
                 .commonKeyboardShortcut("k")
             }
             
@@ -216,9 +236,9 @@ struct SearchView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
                     
-                    TextField("Search bills, transactions, accounts...", text: $searchText)
+                    TextField("Ask Me Anything...", text: $searchText)
                         .textFieldStyle(PlainTextFieldStyle())
-                        .font(.system(size: 16))
+                        .font(.system(size: 16, weight: .regular, design: .default))
                     
                     if !searchText.isEmpty {
                         Button(action: { searchText = "" }) {
@@ -228,9 +248,15 @@ struct SearchView: View {
                         .buttonStyle(BorderlessButtonStyle())
                     }
                 }
-                .padding(10)
-                .background(Color(.systemGray6).opacity(0.8))
-                .cornerRadius(10)
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Material.ultraThinMaterial)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(.systemGray4), lineWidth: 0.5)
+                )
                 .padding(.horizontal)
                 
                 // Search results
