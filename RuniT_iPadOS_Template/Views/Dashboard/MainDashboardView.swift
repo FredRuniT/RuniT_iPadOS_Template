@@ -65,11 +65,13 @@ struct MainDashboardView: View {
     @EnvironmentObject private var financeManager: FinanceManager
     @Environment(\.themeManager) private var themeManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @EnvironmentObject private var userManager: UserManager
     @State private var showingAddBillSheet = false
     @State private var selectedBill: MonthlyBill?
     @State private var isCustomizingDashboard = false
     @State private var dashboardLayout: DashboardLayout = .default
     @State private var pinnedActions: [QuickAction] = [.addBill, .payBill, .setBudget, .schedulePayment]
+    @State private var showSearch = false
     
     var body: some View {
         ScrollView {
@@ -148,10 +150,45 @@ struct MainDashboardView: View {
         .navigationTitle("Dashboard")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { isCustomizingDashboard.toggle() }) {
-                    Image(systemName: "slider.horizontal.3")
+                // Search button with Command+K shortcut
+                Button(action: { showSearch.toggle() }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass")
+                        Text("Search")
+                        Text("⌘K")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(8)
+                    .background(Color(.systemGray6).opacity(0.8))
+                    .cornerRadius(8)
                 }
+                .commonKeyboardShortcut("k")
             }
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                // User avatar button
+                Button(action: { /* User profile action */ }) {
+                    if let user = userManager.currentUser, let photoURL = user.avatarURL {
+                        AsyncImage(url: photoURL) { image in
+                            image.resizable()
+                        } placeholder: {
+                            ProgressView()
+                        }
+                        .frame(width: 32, height: 32)
+                        .clipShape(Circle())
+                    } else {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .help("User Profile")
+            }
+        }
+        .sheet(isPresented: $showSearch) {
+            SearchView()
+                .environmentObject(financeManager)
         }
     }
 }
@@ -160,6 +197,160 @@ struct MainDashboardView: View {
     NavigationView {
         MainDashboardView()
             .environmentObject(FinanceManager())
+            .environmentObject(UserManager())
             .environment(\.themeManager, ThemeManager())
+    }
+}
+
+// Search view with search bar and results
+struct SearchView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var financeManager: FinanceManager
+    @State private var searchText = ""
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 10) {
+                // Search bar
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    
+                    TextField("Search bills, transactions, accounts...", text: $searchText)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .font(.system(size: 16))
+                    
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(BorderlessButtonStyle())
+                    }
+                }
+                .padding(10)
+                .background(Color(.systemGray6).opacity(0.8))
+                .cornerRadius(10)
+                .padding(.horizontal)
+                
+                // Search results
+                if searchText.isEmpty {
+                    // Recent searches and suggestions
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("Recent Searches")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        ForEach(["unpaid bills", "groceries", "netflix"], id: \.self) { term in
+                            HStack {
+                                Image(systemName: "clock")
+                                    .foregroundColor(.secondary)
+                                Text(term)
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                searchText = term
+                            }
+                        }
+                        
+                        Text("Suggested Searches")
+                            .font(.headline)
+                            .padding(.horizontal)
+                            .padding(.top)
+                        
+                        ForEach(["bills due this week", "highest expenses", "monthly budget"], id: \.self) { term in
+                            HStack {
+                                Image(systemName: "sparkles")
+                                    .foregroundColor(.secondary)
+                                Text(term)
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                searchText = term
+                            }
+                        }
+                    }
+                    .padding(.top)
+                } else {
+                    // Search results list
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing:.zero) {
+                            // Filter bills by search text
+                            let filteredBills = financeManager.monthlyBills.filter {
+                                $0.name.localizedCaseInsensitiveContains(searchText) ||
+                                $0.category.localizedCaseInsensitiveContains(searchText)
+                            }
+                            
+                            if !filteredBills.isEmpty {
+                                sectionHeader("Bills")
+                                
+                                ForEach(filteredBills) { bill in
+                                    HStack {
+                                        VStack(alignment: .leading) {
+                                            Text(bill.name)
+                                                .font(.body)
+                                            
+                                            Text(bill.category)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Text("$\(bill.monthlyAmount, specifier: "%.2f")")
+                                            .font(.body)
+                                            .fontWeight(.semibold)
+                                    }
+                                    .padding()
+                                    .background(Color(.systemBackground))
+                                    .onTapGesture {
+                                        // Handle selection
+                                        dismiss()
+                                    }
+                                    
+                                    Divider()
+                                        .padding(.leading)
+                                }
+                            }
+                            
+                            // Additional search results would be here
+                            Text("No more results")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding()
+                        }
+                    }
+                }
+                
+                Spacer()
+            }
+            .padding(.top)
+            .navigationTitle("Search")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.headline)
+            .padding(.horizontal)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.systemBackground))
     }
 }

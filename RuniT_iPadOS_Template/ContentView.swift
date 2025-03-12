@@ -28,6 +28,7 @@ struct ContentView: View {
                 case .dashboard:
                     MainDashboardView()
                         .environmentObject(financeManager)
+                        .environmentObject(userManager)
                 default:
                     Text(selectedItem.title)
                         .font(.largeTitle)
