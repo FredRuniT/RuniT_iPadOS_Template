@@ -11,7 +11,9 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
+    
     @StateObject private var userManager = UserManager()
+    @StateObject private var financeManager = FinanceManager()
     
     @State private var selectedSidebarItem: SidebarItem? = .dashboard
     @State private var selectedDetailItem: UUID? = nil
@@ -22,10 +24,21 @@ struct ContentView: View {
                 .environmentObject(userManager)
         } content: {
             ContentListView(sidebarSelection: selectedSidebarItem, detailSelection: $selectedDetailItem)
+                .environmentObject(financeManager)
         } detail: {
-            DetailView(sidebarSelection: selectedSidebarItem, detailID: selectedDetailItem)
+            detailView
+                .environmentObject(financeManager)
         }
         .navigationSplitViewStyle(.balanced)
+    }
+    
+    @ViewBuilder
+    private var detailView: some View {
+        if selectedSidebarItem == .dashboard {
+            DashboardView(financeManager: financeManager)
+        } else {
+            DetailView(sidebarSelection: selectedSidebarItem, detailID: selectedDetailItem)
+        }
     }
 
     private func addItem() {

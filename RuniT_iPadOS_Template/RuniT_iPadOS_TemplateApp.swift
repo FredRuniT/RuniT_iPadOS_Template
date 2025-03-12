@@ -11,6 +11,7 @@ import SwiftData
 @main
 struct RuniT_iPadOS_TemplateApp: App {
     @StateObject private var userManager = UserManager()
+    @StateObject private var financeManager = FinanceManager()
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -29,6 +30,7 @@ struct RuniT_iPadOS_TemplateApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(userManager)
+                .environmentObject(financeManager)
         }
         .modelContainer(sharedModelContainer)
     }
