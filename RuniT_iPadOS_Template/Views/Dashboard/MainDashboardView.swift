@@ -78,11 +78,11 @@ struct MainDashboardView: View {
             VStack(spacing: 20) {
                 // Header with quick actions
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Welcome to RuniT Finance")
+                    Text("Welcome to Qast.Ai")
                         .font(.title)
                         .fontWeight(.bold)
                     
-                    Text("Your financial command center")
+                    Text("Your Personal Financial Command Center")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     
@@ -147,7 +147,7 @@ struct MainDashboardView: View {
             Text("Add Bill Form")
                 .padding()
         }
-        .navigationTitle("Dashboard")
+        //.navigationTitle("Dashboard")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 // Stylish Command+K search button
