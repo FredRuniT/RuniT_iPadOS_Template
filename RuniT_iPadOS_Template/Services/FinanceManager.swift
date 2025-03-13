@@ -1,81 +1,15 @@
 import Foundation
 import SwiftUI
 import Combine
-
-// Basic model classes for financial data
-struct Account: Identifiable {
-    var id: UUID = UUID()
-    var name: String
-    var type: AccountType
-    var balance: Double
-    var institution: String
-    var accountNumber: String
-    var isActive: Bool = true
-}
-
-enum AccountType: String, CaseIterable {
-    case checking = "Checking"
-    case savings = "Savings"
-    case creditCard = "Credit Card"
-    case investment = "Investment"
-    case loan = "Loan"
-    case mortgage = "Mortgage"
-}
-
-struct Transaction: Identifiable {
-    var id: UUID = UUID()
-    var date: Date
-    var amount: Double
-    var description: String
-    var category: TransactionCategory
-    var accountID: UUID
-    var isRecurring: Bool = false
-}
-
-enum TransactionCategory: String, CaseIterable {
-    case housing = "Housing"
-    case transportation = "Transportation"
-    case food = "Food"
-    case utilities = "Utilities"
-    case healthcare = "Healthcare"
-    case entertainment = "Entertainment"
-    case shopping = "Shopping"
-    case personal = "Personal"
-    case education = "Education"
-    case travel = "Travel"
-    case income = "Income"
-    case other = "Other"
-}
-
-struct Bill: Identifiable {
-    var id: UUID = UUID()
-    var name: String
-    var amount: Double
-    var dueDate: Date
-    var isPaid: Bool = false
-    var isRecurring: Bool = true
-    var recurringFrequency: RecurringFrequency = .monthly
-}
-
-enum RecurringFrequency: String, CaseIterable {
-    case daily = "Daily"
-    case weekly = "Weekly"
-    case biweekly = "Bi-weekly"
-    case monthly = "Monthly"
-    case quarterly = "Quarterly"
-    case yearly = "Yearly"
-}
-
-// MonthlyBill is now defined in DashboardModels.swift
+import SwiftData
 
 class FinanceManager: ObservableObject {
-    @Published var accounts: [Account] = []
-    @Published var transactions: [Transaction] = []
-    @Published var bills: [Bill] = []
+    // Published properties for the UI
     @Published var monthlyBills: [MonthlyBill] = []
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     
+    // Private properties
     private var cancellables = Set<AnyCancellable>()
     private let databaseService = DatabaseService.shared
     
@@ -83,180 +17,164 @@ class FinanceManager: ObservableObject {
         loadSampleData()
     }
     
-    // MARK: - Account Methods
+    // MARK: - SwiftData Methods
     
-    func addAccount(_ account: Account) {
-        accounts.append(account)
-        // In a real app, you would save to persistent storage here
-    }
-    
-    func updateAccount(_ account: Account) {
-        if let index = accounts.firstIndex(where: { $0.id == account.id }) {
-            accounts[index] = account
+    // Load accounts from SwiftData for a user
+    func loadAccounts(modelContext: ModelContext, for userId: UUID) -> [Account] {
+        let predicate = #Predicate<Account> { account in
+            account.user.id == userId
+        }
+        
+        let descriptor = FetchDescriptor<Account>(predicate: predicate)
+        
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            print("Error loading accounts from SwiftData: \(error)")
+            return []
         }
     }
     
-    func deleteAccount(id: UUID) {
-        accounts.removeAll { $0.id == id }
+    // Load transactions from SwiftData for a user
+    func loadTransactions(modelContext: ModelContext, for userId: UUID) -> [Transaction] {
+        let predicate = #Predicate<Transaction> { transaction in
+            transaction.owner.id == userId
+        }
+        
+        let descriptor = FetchDescriptor<Transaction>(predicate: predicate)
+        
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            print("Error loading transactions from SwiftData: \(error)")
+            return []
+        }
     }
     
-    func getAccount(id: UUID) -> Account? {
-        return accounts.first { $0.id == id }
+    // Load bills from SwiftData for a user
+    func loadBills(modelContext: ModelContext, for userId: UUID) -> [Bill] {
+        let predicate = #Predicate<Bill> { bill in
+            bill.owner.id == userId
+        }
+        
+        let descriptor = FetchDescriptor<Bill>(predicate: predicate)
+        
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            print("Error loading bills from SwiftData: \(error)")
+            return []
+        }
     }
     
-    // MARK: - Transaction Methods
+    // Create a new account in SwiftData
+    func createAccount(modelContext: ModelContext, 
+                      name: String, 
+                      type: AccountType, 
+                      balance: Decimal,
+                      for user: User) -> Account {
+        let account = Account(
+            accountId: UUID().uuidString,
+            name: name,
+            type: type,
+            user: user
+        )
+        
+        account.currentBalance = balance
+        account.availableBalance = balance
+        
+        modelContext.insert(account)
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving account: \(error)")
+        }
+        
+        return account
+    }
     
-    func addTransaction(_ transaction: Transaction) {
-        transactions.append(transaction)
+    // Create a new transaction in SwiftData
+    func createTransaction(modelContext: ModelContext,
+                          amount: Decimal,
+                          description: String,
+                          date: Date,
+                          account: Account,
+                          owner: User,
+                          category: Category? = nil) -> Transaction {
+        let transaction = Transaction(
+            amount: amount,
+            date: date,
+            account: account,
+            owner: owner
+        )
+        
+        transaction.name = description
+        transaction.description = description
+        transaction.category = category
+        
+        modelContext.insert(transaction)
+        
         // Update account balance
-        if let index = accounts.firstIndex(where: { $0.id == transaction.accountID }) {
-            accounts[index].balance += transaction.amount
-        }
-    }
-    
-    func updateTransaction(_ transaction: Transaction) {
-        if let index = transactions.firstIndex(where: { $0.id == transaction.id }) {
-            // Revert the old transaction's effect on the account balance
-            if let accountIndex = accounts.firstIndex(where: { $0.id == transactions[index].accountID }) {
-                accounts[accountIndex].balance -= transactions[index].amount
-            }
-            
-            // Apply the new transaction's effect
-            if let accountIndex = accounts.firstIndex(where: { $0.id == transaction.accountID }) {
-                accounts[accountIndex].balance += transaction.amount
-            }
-            
-            transactions[index] = transaction
-        }
-    }
-    
-    func deleteTransaction(id: UUID) {
-        if let transaction = transactions.first(where: { $0.id == id }),
-           let accountIndex = accounts.firstIndex(where: { $0.id == transaction.accountID }) {
-            accounts[accountIndex].balance -= transaction.amount
+        account.currentBalance = (account.currentBalance ?? 0) + amount
+        account.updatedAt = Date()
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving transaction: \(error)")
         }
         
-        transactions.removeAll { $0.id == id }
+        return transaction
     }
     
-    func getTransaction(id: UUID) -> Transaction? {
-        return transactions.first { $0.id == id }
-    }
-    
-    // MARK: - Bill Methods
-    
-    func addBill(_ bill: Bill) {
-        bills.append(bill)
-    }
-    
-    func updateBill(_ bill: Bill) {
-        if let index = bills.firstIndex(where: { $0.id == bill.id }) {
-            bills[index] = bill
-        }
-    }
-    
-    func deleteBill(id: UUID) {
-        bills.removeAll { $0.id == id }
-    }
-    
-    func getBill(id: UUID) -> Bill? {
-        return bills.first { $0.id == id }
-    }
-    
-    func markBillAsPaid(id: UUID) {
-        if let index = bills.firstIndex(where: { $0.id == id }) {
-            bills[index].isPaid = true
-        }
-    }
-    
-    // MARK: - Monthly Bill Methods (Database-backed)
-    
-    /// Fetch all monthly bills from the database
-    func fetchMonthlyBills() {
-        isLoading = true
-        errorMessage = nil
+    // Create a new bill in SwiftData
+    func createBill(modelContext: ModelContext,
+                   name: String,
+                   amount: Decimal,
+                   dueDate: Date,
+                   category: Category,
+                   owner: User,
+                   isRecurring: Bool = true) -> Bill {
         
-        databaseService.fetchMonthlyBills { [weak self] result in
-            guard let self = self else { return }
-            
-            self.isLoading = false
-            
-            switch result {
-            case .success(let bills):
-                self.monthlyBills = bills
-            case .failure(let error):
-                self.errorMessage = "Failed to fetch bills: \(error.localizedDescription)"
-                print("Error fetching monthly bills: \(error)")
-            }
+        let bill = Bill(
+            name: name,
+            amount: amount,
+            dueDate: dueDate,
+            category: category,
+            owner: owner
+        )
+        
+        bill.recurring = isRecurring
+        bill.monthlyAmount = amount // Simplification for now
+        
+        modelContext.insert(bill)
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving bill: \(error)")
         }
+        
+        return bill
     }
     
-    /// Add a new monthly bill to the database
-    /// - Parameter bill: The bill to add
-    func addMonthlyBill(_ bill: MonthlyBill) {
-        isLoading = true
-        errorMessage = nil
-        
-        databaseService.addMonthlyBill(bill) { [weak self] result in
-            guard let self = self else { return }
-            
-            self.isLoading = false
-            
-            switch result {
-            case .success:
-                // Refresh the bills list
-                self.fetchMonthlyBills()
-            case .failure(let error):
-                self.errorMessage = "Failed to add bill: \(error.localizedDescription)"
-                print("Error adding monthly bill: \(error)")
-            }
-        }
-    }
+    // MARK: - Helper Methods
     
-    /// Update an existing monthly bill in the database
-    /// - Parameter bill: The bill to update
-    func updateMonthlyBill(_ bill: MonthlyBill) {
-        isLoading = true
-        errorMessage = nil
-        
-        databaseService.updateMonthlyBill(bill) { [weak self] result in
-            guard let self = self else { return }
-            
-            self.isLoading = false
-            
-            switch result {
-            case .success:
-                // Update the bill in the local array
-                if let index = self.monthlyBills.firstIndex(where: { $0.id == bill.id }) {
-                    self.monthlyBills[index] = bill
-                }
-            case .failure(let error):
-                self.errorMessage = "Failed to update bill: \(error.localizedDescription)"
-                print("Error updating monthly bill: \(error)")
-            }
-        }
-    }
-    
-    /// Delete a monthly bill from the database
-    /// - Parameter billId: The ID of the bill to delete
-    func deleteMonthlyBill(billId: UUID) {
-        isLoading = true
-        errorMessage = nil
-        
-        databaseService.deleteMonthlyBill(billId: billId) { [weak self] result in
-            guard let self = self else { return }
-            
-            self.isLoading = false
-            
-            switch result {
-            case .success:
-                // Remove the bill from the local array
-                self.monthlyBills.removeAll { $0.id == billId }
-            case .failure(let error):
-                self.errorMessage = "Failed to delete bill: \(error.localizedDescription)"
-                print("Error deleting monthly bill: \(error)")
-            }
-        }
+    // Convert SwiftData Bill to MonthlyBill for UI
+    func convertToMonthlyBill(_ bill: Bill) -> MonthlyBill {
+        return MonthlyBill(
+            id: bill.id,
+            name: bill.name,
+            monthlyAmount: NSDecimalNumber(decimal: bill.monthlyAmount).doubleValue,
+            pastDue: NSDecimalNumber(decimal: bill.pastDueAmount).doubleValue,
+            dueDate: bill.dueDate,
+            status: bill.status == .paid ? .paid : 
+                   bill.status == .overdue ? .late :
+                   bill.status == .pending ? .scheduled : .unpaid,
+            category: bill.category?.name ?? "Uncategorized",
+            daysPastDue: Calendar.current.dateComponents([.day], from: bill.dueDate, to: Date()).day ?? 0
+        )
     }
     
     // MARK: - Database Connection
@@ -288,85 +206,10 @@ class FinanceManager: ObservableObject {
     // MARK: - Sample Data
     
     private func loadSampleData() {
-        // Sample accounts
-        let checkingAccount = Account(
-            name: "Primary Checking",
-            type: .checking,
-            balance: 2543.67,
-            institution: "Example Bank",
-            accountNumber: "XXXX-XXXX-1234"
-        )
-        
-        let savingsAccount = Account(
-            name: "Emergency Fund",
-            type: .savings,
-            balance: 15000.00,
-            institution: "Example Bank",
-            accountNumber: "XXXX-XXXX-5678"
-        )
-        
-        let creditCard = Account(
-            name: "Rewards Credit Card",
-            type: .creditCard,
-            balance: -450.32,
-            institution: "Credit Bank",
-            accountNumber: "XXXX-XXXX-9012"
-        )
-        
-        accounts = [checkingAccount, savingsAccount, creditCard]
-        
-        // Sample transactions
+        // Sample monthly bills (for UI preview when database is not connected)
         let now = Date()
         let calendar = Calendar.current
         
-        let transaction1 = Transaction(
-            date: calendar.date(byAdding: .day, value: -2, to: now)!,
-            amount: -85.42,
-            description: "Grocery Shopping",
-            category: .food,
-            accountID: checkingAccount.id
-        )
-        
-        let transaction2 = Transaction(
-            date: calendar.date(byAdding: .day, value: -3, to: now)!,
-            amount: -45.00,
-            description: "Gas Station",
-            category: .transportation,
-            accountID: checkingAccount.id
-        )
-        
-        let transaction3 = Transaction(
-            date: calendar.date(byAdding: .day, value: -5, to: now)!,
-            amount: -65.30,
-            description: "Restaurant",
-            category: .food,
-            accountID: creditCard.id
-        )
-        
-        transactions = [transaction1, transaction2, transaction3]
-        
-        // Sample bills
-        let bill1 = Bill(
-            name: "Rent",
-            amount: 1200.00,
-            dueDate: calendar.date(byAdding: .day, value: 5, to: now)!
-        )
-        
-        let bill2 = Bill(
-            name: "Electricity",
-            amount: 85.00,
-            dueDate: calendar.date(byAdding: .day, value: 12, to: now)!
-        )
-        
-        let bill3 = Bill(
-            name: "Internet",
-            amount: 65.00,
-            dueDate: calendar.date(byAdding: .day, value: 15, to: now)!
-        )
-        
-        bills = [bill1, bill2, bill3]
-        
-        // Sample monthly bills (for UI preview when database is not connected)
         let monthlyBill1 = MonthlyBill(
             name: "Rent",
             monthlyAmount: 1200.00,
@@ -398,5 +241,168 @@ class FinanceManager: ObservableObject {
         )
         
         monthlyBills = [monthlyBill1, monthlyBill2, monthlyBill3]
+    }
+    
+    // MARK: - Create Sample SwiftData
+    
+    func createSampleSwiftDataForDemo(modelContext: ModelContext) {
+        // Create a user
+        let user = User(
+            email: "demo@example.com",
+            firstName: "Demo",
+            lastName: "User",
+            displayName: "Demo User"
+        )
+        modelContext.insert(user)
+        
+        // Create categories
+        let housingCategory = Category(
+            name: "Housing",
+            categoryType: .expense,
+            user: user
+        )
+        housingCategory.isEssential = true
+        
+        let utilitiesCategory = Category(
+            name: "Utilities",
+            categoryType: .expense,
+            user: user
+        )
+        utilitiesCategory.isEssential = true
+        
+        let foodCategory = Category(
+            name: "Food",
+            categoryType: .expense,
+            user: user
+        )
+        foodCategory.isEssential = true
+        
+        let transportationCategory = Category(
+            name: "Transportation",
+            categoryType: .expense,
+            user: user
+        )
+        
+        let entertainmentCategory = Category(
+            name: "Entertainment",
+            categoryType: .expense,
+            user: user
+        )
+        
+        modelContext.insert(housingCategory)
+        modelContext.insert(utilitiesCategory)
+        modelContext.insert(foodCategory)
+        modelContext.insert(transportationCategory)
+        modelContext.insert(entertainmentCategory)
+        
+        // Create accounts
+        let checkingAccount = Account(
+            accountId: "checking123",
+            name: "Primary Checking",
+            type: .checking,
+            user: user
+        )
+        checkingAccount.currentBalance = 2543.67
+        checkingAccount.availableBalance = 2543.67
+        
+        let savingsAccount = Account(
+            accountId: "savings456",
+            name: "Emergency Fund",
+            type: .savings,
+            user: user
+        )
+        savingsAccount.currentBalance = 15000
+        savingsAccount.availableBalance = 15000
+        
+        let creditCard = Account(
+            accountId: "cc789",
+            name: "Rewards Credit Card",
+            type: .credit,
+            user: user
+        )
+        creditCard.currentBalance = -450.32
+        creditCard.availableBalance = -450.32
+        
+        modelContext.insert(checkingAccount)
+        modelContext.insert(savingsAccount)
+        modelContext.insert(creditCard)
+        
+        // Create bills
+        let now = Date()
+        let calendar = Calendar.current
+        
+        let rentBill = Bill(
+            name: "Rent",
+            amount: 1200,
+            dueDate: calendar.date(byAdding: .day, value: 5, to: now)!,
+            category: housingCategory,
+            owner: user
+        )
+        rentBill.recurring = true
+        rentBill.monthlyAmount = 1200
+        
+        let electricityBill = Bill(
+            name: "Electricity",
+            amount: 85,
+            dueDate: calendar.date(byAdding: .day, value: 12, to: now)!,
+            category: utilitiesCategory,
+            owner: user
+        )
+        electricityBill.recurring = true
+        electricityBill.monthlyAmount = 85
+        
+        let internetBill = Bill(
+            name: "Internet",
+            amount: 65,
+            dueDate: calendar.date(byAdding: .day, value: -5, to: now)!,
+            category: utilitiesCategory,
+            owner: user
+        )
+        internetBill.recurring = true
+        internetBill.monthlyAmount = 65
+        internetBill.pastDueAmount = 85
+        internetBill.status = .overdue
+        
+        modelContext.insert(rentBill)
+        modelContext.insert(electricityBill)
+        modelContext.insert(internetBill)
+        
+        // Create transactions
+        let groceryTransaction = Transaction(
+            amount: -85.42,
+            date: calendar.date(byAdding: .day, value: -2, to: now)!,
+            account: checkingAccount,
+            owner: user
+        )
+        groceryTransaction.name = "Grocery Shopping"
+        groceryTransaction.category = foodCategory
+        
+        let gasTransaction = Transaction(
+            amount: -45.00,
+            date: calendar.date(byAdding: .day, value: -3, to: now)!,
+            account: checkingAccount,
+            owner: user
+        )
+        gasTransaction.name = "Gas Station"
+        gasTransaction.category = transportationCategory
+        
+        let restaurantTransaction = Transaction(
+            amount: -65.30,
+            date: calendar.date(byAdding: .day, value: -5, to: now)!,
+            account: creditCard,
+            owner: user
+        )
+        restaurantTransaction.name = "Restaurant"
+        restaurantTransaction.category = foodCategory
+        
+        modelContext.insert(groceryTransaction)
+        modelContext.insert(gasTransaction)
+        modelContext.insert(restaurantTransaction)
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving sample data: \(error)")
+        }
     }
 } 

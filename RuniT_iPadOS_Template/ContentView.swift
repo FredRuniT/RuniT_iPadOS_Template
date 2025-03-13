@@ -10,11 +10,13 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @StateObject private var userManager = UserManager()
-    @StateObject private var financeManager = FinanceManager()
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var userManager: UserManager
+    @EnvironmentObject private var financeManager: FinanceManager
     
     @State private var selectedSidebarItem: SidebarItem? = .dashboard
     @State private var columnVisibility = NavigationSplitViewVisibility.automatic
+    @State private var isFirstLaunch = true
     
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -41,6 +43,35 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .onAppear {
+            if isFirstLaunch {
+                isFirstLaunch = false
+                
+                // Check if we have any users in the database
+                let descriptor = FetchDescriptor<User>(sortBy: [SortDescriptor(\.createdAt)])
+                
+                do {
+                    let existingUsers = try modelContext.fetch(descriptor)
+                    
+                    if existingUsers.isEmpty {
+                        // Create sample data on first launch
+                        financeManager.createSampleSwiftDataForDemo(modelContext: modelContext)
+                    } else if let firstUser = existingUsers.first {
+                        // Load the first user
+                        userManager.currentUser = UserProfile(from: firstUser)
+                        userManager.isAuthenticated = true
+                        
+                        // Load bills for the UI
+                        let bills = financeManager.loadBills(modelContext: modelContext, for: firstUser.id)
+                        
+                        // Convert to MonthlyBill type for the UI
+                        financeManager.monthlyBills = bills.map { financeManager.convertToMonthlyBill($0) }
+                    }
+                } catch {
+                    print("Error checking for existing users: \(error)")
+                }
+            }
+        }
     }
 }
 
@@ -56,5 +87,14 @@ extension UIDevice {
 
 #Preview(traits: .landscapeLeft) {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .environmentObject(UserManager())
+        .environmentObject(FinanceManager())
+        .environment(\.themeManager, ThemeManager())
+        .modelContainer(for: [
+            User.self,
+            Account.self,
+            Bill.self,
+            Transaction.self,
+            Category.self
+        ], inMemory: true)
 }

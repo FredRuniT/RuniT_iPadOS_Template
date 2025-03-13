@@ -1,31 +1,79 @@
 import Foundation
+import SwiftData
 
-/// Database configuration for table and column names
-/// Provides a type-safe way to reference database schema elements
+/// Configuration constants for database access
 struct DatabaseConfig {
-    /// Database table names
+    /// Legacy database table names (for external database connections)
     struct Tables {
-        /// Table name for monthly bills
         static let monthlyBills = "monthly_bills"
+        static let users = "users"
+        static let accounts = "accounts"
+        static let transactions = "transactions"
     }
     
-    /// Column names for the monthly bills table
+    /// Monthly bill column names (for external database connections)
     struct MonthlyBillColumns {
-        /// Primary key column
         static let id = "id"
-        /// Name of the bill
         static let name = "name"
-        /// Monthly amount due
         static let monthlyAmount = "monthly_amount"
-        /// Whether the bill is past due
         static let pastDue = "past_due"
-        /// Due date for the bill
         static let dueDate = "due_date"
-        /// Status of the bill (paid, unpaid, etc.)
         static let status = "status"
-        /// Category of the bill
         static let category = "category"
-        /// Number of days past due
         static let daysPastDue = "days_past_due"
+    }
+    
+    /// SwiftData Configuration
+    struct SwiftData {
+        // Constants for database configuration
+        enum Constants {
+            static let schemaVersion = "1.0.0"
+            static let defaultDatabaseName = "RuniT_Finance.sqlite"
+        }
+        
+        // Database URL
+        static var databaseURL: URL? {
+            let fileManager = FileManager.default
+            guard let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+                return nil
+            }
+            
+            return documentsURL.appendingPathComponent(Constants.defaultDatabaseName)
+        }
+        
+        // Create model configurations
+        static func createModelConfiguration() -> ModelConfiguration {
+            return configureSchema()
+        }
+        
+        // Create model container - for use in previews or tests
+        static func createPreviewContainer() -> ModelContainer {
+            do {
+                let config = ModelConfiguration(isStoredInMemoryOnly: true)
+                let container = try ModelContainer(for: [
+                    User.self,
+                    Household.self,
+                    HouseholdPermission.self,
+                    HouseholdAnalytics.self,
+                    Account.self,
+                    PlaidConnection.self,
+                    Transaction.self,
+                    Category.self,
+                    BudgetCategoryMapping.self,
+                    Bill.self,
+                    Income.self,
+                    Loan.self,
+                    FinancialGoal.self,
+                    WishlistItem.self,
+                    Chat.self,
+                    AIResponse.self,
+                    UserSettings.self,
+                    UserNotification.self
+                ], configurations: config)
+                return container
+            } catch {
+                fatalError("Failed to create model container: \(error.localizedDescription)")
+            }
+        }
     }
 }
